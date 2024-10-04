@@ -1,0 +1,99 @@
+---
+title: "module_2_analysis"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 
+
+
+```{r}
+getwd()
+BodyFat = read.csv("BodyFat.csv")
+# Observe dataset.
+dim(BodyFat)
+head(BodyFat)
+tail(BodyFat)
+summary(BodyFat)
+```
+
+## Correlation Matrix
+
+```{r}
+library(corrplot)
+
+# Load the dataset (replace the file path with the correct one)
+df <- read.csv("BodyFat.csv")
+
+df_numeric <- df[, -1] 
+
+# Calculate the correlation matrix
+cor_matrix <- cor(df_numeric)
+
+# Visualize the correlation matrix
+corrplot(cor_matrix, method = "color", type = "upper", 
+         tl.col = "black", tl.srt = 45, 
+         col = colorRampPalette(c("blue", "white", "red"))(200),
+         title = "Correlation Matrix")
+
+# Considering the strong correlation between body fat and Abdomen as one of the 
+# feature for the model
+```
+
+```{r}
+# Assign dataset columns to easy-to-access vectors.
+BODYFAT = BodyFat$BODYFAT
+AGE = BodyFat$AGE
+WEIGHT = BodyFat$WEIGHT
+ADIPOSITY = BodyFat$ADIPOSITY
+
+# Visualize histograms for body fat, age, weight, and adiposity.
+m_1  = matrix(c(1,2,3,4), nrow = 2, ncol  =2, byrow = TRUE)
+layout(m_1)
+hist(BODYFAT,breaks=30, ylim = c(0, 40), cex.lab=1.5,cex.main=1.5,
+     main="Histogram of Body Fat %",xlab="Body Fat %")
+hist(AGE,breaks=30, ylim = c(0, 25), cex.lab=1.5,cex.main=1.5,
+     main="Histogram of Age",xlab="Age (yrs)")
+hist(WEIGHT,breaks=30, xlim = c(40, 160), cex.lab=1.5,cex.main=1.5,
+     main="Histogram of Weight",xlab="Weight (kg)")
+hist(ADIPOSITY,breaks=30, ylim  = c(0, 40), cex.lab=1.5,cex.main=1.5,
+     main="Histogram of ADIPOSITY",xlab="ADIPOSITY(BMI)")
+```
+
+
+
+
+```{r}
+remove_outliers = function(data) {
+  data = data[data$BODYFAT >= 3 & data$BODYFAT <= 60, ]
+  data = data[data$ADIPOSITY >= 15 & data$ADIPOSITY <= 40, ]
+  data = data[data$ABDOMEN >= 60 & data$ABDOMEN <= 140, ]
+  
+  return(data)
+}
+
+bodyfat_data = remove_outliers(BodyFat)
+
+# Build the linear regression model using ADIPOSITY, ABDOMEN, and AGE to predict BODYFAT
+model = lm(BODYFAT ~ ADIPOSITY + ABDOMEN + AGE, data = bodyfat_data)
+summary(model)
+```
+
+```{r}
+library(ggplot2)
+
+ predicted_values = predict(model, bodyfat_data)
+      ggplot(bodyfat_data, aes(x = BODYFAT, y = predicted_values)) +
+        geom_point(color = "blue") +
+        geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") +
+        labs(title = "Actual vs Predicted Body Fat", x = "Actual Body Fat (%)", y = "Predicted Body Fat (%)") +
+        theme_minimal()
+```
+
+```{r}
+
+```
+
