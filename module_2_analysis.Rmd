@@ -7,8 +7,11 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## 
 
+```{r}
+library(ggplot2)
+library(corrplot)
+```
 
 ```{r}
 getwd()
@@ -23,15 +26,10 @@ summary(BodyFat)
 ## Correlation Matrix
 
 ```{r}
-library(corrplot)
-
-# Load the dataset (replace the file path with the correct one)
-df <- read.csv("BodyFat.csv")
-
-df_numeric <- df[, -1] 
+df_numeric = BodyFat[, -1] 
 
 # Calculate the correlation matrix
-cor_matrix <- cor(df_numeric)
+cor_matrix = cor(df_numeric)
 
 # Visualize the correlation matrix
 corrplot(cor_matrix, method = "color", type = "upper", 
@@ -64,9 +62,24 @@ hist(ADIPOSITY,breaks=30, ylim  = c(0, 40), cex.lab=1.5,cex.main=1.5,
 ```
 
 
+```{r}
+ggplot(BodyFat, aes(y = BODYFAT)) +
+  geom_boxplot(outlier.colour = "red", outlier.shape = 16, outlier.size = 2) +
+  labs(title = "Boxplot for Body Fat", y = "Body Fat Percentage") +
+  theme_minimal()
+ggplot(BodyFat, aes(y = ADIPOSITY)) +
+  geom_boxplot(outlier.colour = "red", outlier.shape = 16, outlier.size = 2) +
+  labs(title = "Boxplot for Adiposity", y = "Adiposity") +
+  theme_minimal()
+ggplot(BodyFat, aes(y = ABDOMEN)) +
+  geom_boxplot(outlier.colour = "red", outlier.shape = 16, outlier.size = 2) +
+  labs(title = "Boxplot for Abdomen", y = "Abdomen") +
+  theme_minimal()
+```
 
 
 ```{r}
+# robust method filter outlier
 remove_outliers = function(data) {
   data = data[data$BODYFAT >= 3 & data$BODYFAT <= 60, ]
   data = data[data$ADIPOSITY >= 15 & data$ADIPOSITY <= 40, ]
@@ -76,14 +89,35 @@ remove_outliers = function(data) {
 }
 
 bodyfat_data = remove_outliers(BodyFat)
+```
 
+```{r}
+cap_outliers = function(x) {
+  Q1 = quantile(x, 0.25)
+  Q3 = quantile(x, 0.75)
+  IQR = Q3 - Q1
+  lower_bound = Q1 - 1.5 * IQR
+  upper_bound = Q3 + 1.5 * IQR
+  x[x < lower_bound] = lower_bound
+  x[x > upper_bound] = upper_bound
+  return(x)
+}
+
+bodyfat_data_v2 = BodyFat
+df_numeric = BodyFat[sapply(BodyFat, is.numeric)]
+df_capped = as.data.frame(lapply(df_numeric, cap_outliers))
+bodyfat_data_v2[sapply(df, is.numeric)] = df_capped
+bodyfat_data_v2 = remove_outliers(bodyfat_data_v2);
+```
+
+
+```{r}
 # Build the linear regression model using ADIPOSITY, ABDOMEN, and AGE to predict BODYFAT
-model = lm(BODYFAT ~ ADIPOSITY + ABDOMEN + AGE, data = bodyfat_data)
+model = lm(BODYFAT ~ ADIPOSITY + ABDOMEN + AGE, data = bodyfat_data_v2)
 summary(model)
 ```
 
 ```{r}
-library(ggplot2)
 
  predicted_values = predict(model, bodyfat_data)
       ggplot(bodyfat_data, aes(x = BODYFAT, y = predicted_values)) +
@@ -94,6 +128,56 @@ library(ggplot2)
 ```
 
 ```{r}
+ # Residual plot
+residuals = model$residuals
+ggplot(bodyfat_data_v2, aes(x = predict(model), y = residuals)) +
+  geom_point() +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  labs(title = "Residual Plot", x = "Predicted Values", y = "Residuals") +
+  theme_minimal()
 
 ```
+
+
+
+
+```{r}
+ggplot() +
+  geom_histogram(aes(x = bodyfat_data_v2$BODYFAT), fill = "blue", alpha = 0.5, bins = 30) +
+  geom_histogram(aes(x = predicted_values), fill = "green", alpha = 0.5, bins = 30) +
+  labs(title = "Distribution of Actual vs Predicted Body Fat", x = "Body Fat (%)", y = "Count") +
+  theme_minimal()
+```
+
+
+```{r}
+ggplot(data = data.frame(residuals), aes(sample = residuals)) +
+  stat_qq() +
+  stat_qq_line() + 
+  labs(title = "Q-Q Plot of Residuals for Body Fat Model",
+       x = "Theoretical Quantiles",
+       y = "Sample Quantiles") +
+  theme_minimal()
+```
+
+
+```{r}
+# Pii's value chart 
+pii_BA = hatvalues(model)
+par(mfrow = c(2,1))
+n = dim(bodyfat_data)[1]
+plot(1:n,pii_BA,type="p",pch=19,cex=1,cex.lab=1.5,
+     xlab="Index (Each Observation)",ylab="Pii",main="Leverage Values (Pii for BodyFat and Adiposity)")
+
+# Cook's distance chart 
+cooki_BA = cooks.distance(model)
+plot(1:n,cooki_BA,type="p",pch=19,cex=1,cex.lab=1.5,
+     xlab="Index (Each Observation)",ylab="Cook's Distance",main="Influence Values (Cook's Distance for BodyFat and Adiposity)")
+```
+
+
+
+
+
+
 
