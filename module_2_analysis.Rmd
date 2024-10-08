@@ -23,6 +23,9 @@ tail(BodyFat)
 summary(BodyFat)
 ```
 
+
+
+
 ## Correlation Matrix
 
 ```{r}
@@ -117,15 +120,27 @@ model = lm(BODYFAT ~ ADIPOSITY + ABDOMEN + AGE, data = bodyfat_data_v2)
 summary(model)
 ```
 
+
+
+```{r}
+head(predict(model, bodyfat_data_v2, interval = "confidence"))
+```
+
+
+
+
 ```{r}
 
- predicted_values = predict(model, bodyfat_data)
-      ggplot(bodyfat_data, aes(x = BODYFAT, y = predicted_values)) +
-        geom_point(color = "blue") +
-        geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") +
-        labs(title = "Actual vs Predicted Body Fat", x = "Actual Body Fat (%)", y = "Predicted Body Fat (%)") +
-        theme_minimal()
+predicted_values = predict(model, bodyfat_data)
+ggplot(bodyfat_data, aes(x = BODYFAT, y = predicted_values)) +
+  geom_point(color = "blue") +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") +
+  labs(title = "Actual vs Predicted Body Fat", x = "Actual Body Fat (%)", y = "Predicted Body Fat (%)") +
+  theme_minimal()
 ```
+
+
+
 
 ```{r}
  # Residual plot
@@ -165,7 +180,7 @@ ggplot(data = data.frame(residuals), aes(sample = residuals)) +
 # Pii's value chart 
 pii_BA = hatvalues(model)
 par(mfrow = c(2,1))
-n = dim(bodyfat_data)[1]
+n = dim(bodyfat_data_v2)[1]
 plot(1:n,pii_BA,type="p",pch=19,cex=1,cex.lab=1.5,
      xlab="Index (Each Observation)",ylab="Pii",main="Leverage Values (Pii for BodyFat and Adiposity)")
 
