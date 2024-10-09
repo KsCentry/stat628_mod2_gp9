@@ -46,7 +46,4 @@ This repository contains all the necessary data, code, and resources for analyzi
 - **Custom Modifications**: If you wish to modify the models (e.g., adding more predictors or changing the analysis), adjust the code in the `code/` folder accordingly.
 
 ### Group Members
-Hengyu Yang
-Leyan Sun
-Tianle Qiu
-Yi Ma
+Hengyu Yang, Leyan Sun, Tianle Qiu, Yi Ma
