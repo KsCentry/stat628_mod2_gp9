@@ -1,8 +1,7 @@
 library(shiny)
 library(ggplot2)
 
-# Load the dataset
-bodyfat_data = read.csv("BodyFat.csv")
+bodyfat_data = read.csv("../data/BodyFat.csv")
 
 remove_outliers = function(data) {
   data = data[data$BODYFAT >= 3 & data$BODYFAT <= 60, ]
@@ -14,19 +13,14 @@ remove_outliers = function(data) {
 
 bodyfat_data = remove_outliers(bodyfat_data)
 
-# Build the linear regression model using ADIPOSITY, ABDOMEN, and AGE to predict BODYFAT
 complex_model = lm(BODYFAT ~ ADIPOSITY + ABDOMEN + AGE, data = bodyfat_data)
-
-# Build a simpler model using just HEIGHT and WEIGHT if ADIPOSITY is not provided
 simple_model = lm(BODYFAT ~ WEIGHT + HEIGHT, data = bodyfat_data)
 
-# Function to calculate Adiposity
 calculate_adiposity = function(weight, height) {
   adiposity = (weight / (height^2)) * 703 # Use the formula: weight / height^2 * 703 (to adjust for units)
   return(adiposity)
 }
 
-# Define UI for the app
 ui = fluidPage(
   titlePanel("Body Fat Prediction App"),
   
@@ -35,8 +29,8 @@ ui = fluidPage(
       numericInput("height", "Enter your height (in inches):", value = 70),
       numericInput("weight", "Enter your weight (in pounds):", value = 150),
       numericInput("abdomen", "Enter your abdomen circumference (in cm) (optional):", value = NA),
-      numericInput("adiposity", "Enter your adiposity (optional):", value = NA),
-      numericInput("age", "Enter your age:", value = 25),
+      numericInput("adiposity", "Enter your adiposity/BMI (optional):", value = NA),
+      numericInput("age", "Enter your age (optional), default 20:", value = 20),
       actionButton("predict", "Predict Body Fat"),
       hr(),
       h4("Model Statistics and Plots"),
@@ -50,7 +44,7 @@ ui = fluidPage(
     mainPanel(
       h3("Predicted Body Fat (%):"),
       textOutput("prediction_output"),
-      textOutput("warning_message"), # Warning message if body fat is abnormal
+      textOutput("warning_message"),
       hr(),
       plotOutput("residual_plot"),
       plotOutput("scatter_plot"),
@@ -59,26 +53,42 @@ ui = fluidPage(
   )
 )
 
-# Define server logic for the app
+
 server = function(input, output, session) {
-  # To store if user confirmed the abnormal body fat
   user_confirmed = reactiveVal(FALSE)
   
   observeEvent(input$predict, {
-    # Clear any previous warning messages
+    # Clear any previous warning messages and prediction output
     output$warning_message = renderText({ "" })
+    output$prediction_output = renderText({ "" })  # Clear previous prediction result
     
-    # Validate inputs with proper boundaries
-    if (input$height < 48 || input$height > 84) {
+    # Check if the required variables (height and weight) are provided and valid
+    if (is.na(input$height) || is.na(input$weight)) {
+      output$warning_message = renderText({
+        "Both height and weight are required fields. Please enter valid values."
+      })
+      return(NULL)
+    }
+    
+    # Validate height and weight ranges
+    if (!is.na(input$height) && (input$height < 48 || input$height > 84)) {
       output$warning_message = renderText({
         "Height should be between 48 and 84 inches."
       })
       return(NULL)
     }
     
-    if (input$weight < 80 || input$weight > 500) {
+    if (!is.na(input$weight) && (input$weight < 80 || input$weight > 500)) {
       output$warning_message = renderText({
         "Weight should be between 80 and 500 pounds."
+      })
+      return(NULL)
+    }
+    
+    # Check optional variables (age, abdomen) for valid ranges
+    if (!is.na(input$age) && (input$age < 18 || input$age > 100)) {
+      output$warning_message = renderText({
+        "Age should be between 18 and 100."
       })
       return(NULL)
     }
@@ -90,24 +100,23 @@ server = function(input, output, session) {
       return(NULL)
     }
     
-    if (!is.na(input$adiposity) && (input$adiposity < 15 || input$adiposity > 40)) {
+    # Ensure numeric NA values for age and abdomen
+    age_value <- ifelse(is.na(input$age), NA_real_, as.numeric(input$age))
+    abdomen_value <- ifelse(is.na(input$abdomen), NA_real_, as.numeric(input$abdomen))
+    adiposity_value <- ifelse(is.na(input$adiposity), calculate_adiposity(input$weight, input$height), input$adiposity)
+    
+    # Check if calculated or provided adiposity (BMI) is within a reasonable range
+    if (!is.na(adiposity_value) && (adiposity_value < 15 || adiposity_value > 40)) {
       output$warning_message = renderText({
-        "Adiposity should be between 15 and 40."
+        paste("The calculated or provided BMI (", round(adiposity_value, 2), ") does not fall within the normal range (15 - 40). Please check your inputs.")
       })
       return(NULL)
     }
     
-    
-    # If adiposity is not provided, calculate it from height and weight
-    adiposity_value <- ifelse(is.na(input$adiposity), calculate_adiposity(input$weight, input$height), input$adiposity)
-    
-    # Ensure abdomen is numeric and handle missing values
-    abdomen_value <- ifelse(is.na(input$abdomen), NA_real_, as.numeric(input$abdomen))
-    
     # Predict body fat using the appropriate model
-    if (!is.na(adiposity_value) && !is.na(abdomen_value)) {
+    if (!is.na(adiposity_value) && !is.na(abdomen_value) && !is.na(age_value)) {
       # Use complex model when adiposity and abdomen are provided
-      new_data <- data.frame(ADIPOSITY = adiposity_value, ABDOMEN = abdomen_value, AGE = input$age)
+      new_data <- data.frame(ADIPOSITY = adiposity_value, ABDOMEN = abdomen_value, AGE = age_value)
       predicted_bodyfat <- predict(complex_model, new_data)
     } else {
       # Use simple model when only weight and height are available
@@ -116,21 +125,19 @@ server = function(input, output, session) {
     }
     
     # Check if the predicted body fat is within normal human range
-    if (predicted_bodyfat < 3 || predicted_bodyfat > 60) {
+    if (!is.na(predicted_bodyfat) && (predicted_bodyfat < 3 || predicted_bodyfat > 60)) {
       if (!user_confirmed()) {
         output$warning_message = renderText({
           "The predicted body fat is abnormal. Please check your input. Do you confirm the results?"
         })
         user_confirmed(TRUE)  # Set confirmation flag to true for next click
       } else {
-        # If the user confirms, display the result anyway
         output$prediction_output = renderText({
           round(predicted_bodyfat, 2)
         })
         user_confirmed(FALSE)  # Reset confirmation flag
       }
     } else {
-      # If body fat is within normal range, show the result
       output$prediction_output = renderText({
         round(predicted_bodyfat, 2)
       })
@@ -138,7 +145,6 @@ server = function(input, output, session) {
     }
   })
   
-  # Generate plots when the button is clicked
   observeEvent(input$showPlots, {
     
     # Residual plot
@@ -173,5 +179,4 @@ server = function(input, output, session) {
   })
 }
 
-# Run the app
 shinyApp(ui = ui, server = server)
