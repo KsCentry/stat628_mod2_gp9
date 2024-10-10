@@ -9,13 +9,14 @@ knitr::opts_chunk$set(echo = TRUE)
 
 
 ```{r}
-library(ggplot2)
 library(corrplot)
+library(dplyr)
+library(ggplot2)
 ```
 
 ```{r}
 getwd()
-BodyFat = read.csv("BodyFat.csv")
+BodyFat = read.csv("../data/BodyFat.csv")
 # Observe dataset.
 dim(BodyFat)
 head(BodyFat)
@@ -44,6 +45,14 @@ corrplot(cor_matrix, method = "color", type = "upper",
 # feature for the model
 ```
 
+**Adiposity** is chosen because it is directly related to fat accumulation and distribution, making it a highly predictive feature for body fat.\
+**Abdomen**: The abdominal region is often a key indicator of central obesity and correlates strongly with body fat, particularly visceral fat.\
+**Age**: Including age accounts for physiological changes over time that can affect body fat, such as hormonal changes or metabolism.\
+**Chest and Hip**: These are additional body circumferences that reflect fat distribution across different parts of the body, complementing abdomen measurements.\
+**Wrist**: This may be used as a control variable, as wrist circumference often does not change much with body fat, serving as an indicator of bone size or frame size, which can help normalize other measures of body size.
+
+
+
 ```{r}
 # Assign dataset columns to easy-to-access vectors.
 BODYFAT = BodyFat$BODYFAT
@@ -66,73 +75,110 @@ hist(ADIPOSITY,breaks=30, ylim  = c(0, 40), cex.lab=1.5,cex.main=1.5,
 
 
 ```{r}
-ggplot(BodyFat, aes(y = BODYFAT)) +
-  geom_boxplot(outlier.colour = "red", outlier.shape = 16, outlier.size = 2) +
-  labs(title = "Boxplot for Body Fat", y = "Body Fat Percentage") +
-  theme_minimal()
-ggplot(BodyFat, aes(y = ADIPOSITY)) +
-  geom_boxplot(outlier.colour = "red", outlier.shape = 16, outlier.size = 2) +
-  labs(title = "Boxplot for Adiposity", y = "Adiposity") +
-  theme_minimal()
-ggplot(BodyFat, aes(y = ABDOMEN)) +
-  geom_boxplot(outlier.colour = "red", outlier.shape = 16, outlier.size = 2) +
-  labs(title = "Boxplot for Abdomen", y = "Abdomen") +
-  theme_minimal()
+layout(matrix(c(1:3), nrow = 1, ncol = 3, byrow = TRUE))
+
+boxplot(BodyFat$ADIPOSITY,
+        main = "Boxplot for Adiposity",
+        ylab = "Adiposity",
+        col = "lightblue",
+        outline = TRUE)
+
+boxplot(BodyFat$ABDOMEN,
+        main = "Boxplot for Abdomen",
+        ylab = "Abdomen",
+        col = "lightblue",
+        outline = TRUE)
+boxplot(BodyFat$HEIGHT,
+        main = "Boxplot for Height",
+        ylab = "Height",
+        col = "lightblue",
+        outline = TRUE)
 ```
 
 
 ```{r}
 # robust method filter outlier
 remove_outliers = function(data) {
-  data = data[data$BODYFAT >= 3 & data$BODYFAT <= 60, ]
-  data = data[data$ADIPOSITY >= 15 & data$ADIPOSITY <= 40, ]
+  data = data[data$BODYFAT >= 3 & data$BODYFAT <= 50, ]
+  data = data[data$ADIPOSITY >= 10 & data$ADIPOSITY <= 50, ]
   data = data[data$ABDOMEN >= 60 & data$ABDOMEN <= 140, ]
-  
+  data = data[data$HEIGHT >= 48 & data$HEIGHT <= 84, ]
   return(data)
 }
 
-bodyfat_data = remove_outliers(BodyFat)
+BodyFat_cleaned = remove_outliers(BodyFat)
+write.csv2(BodyFat_cleaned, file = "../data/BodyFat_cleaned.csv")
 ```
 
 ```{r}
-cap_outliers = function(x) {
-  Q1 = quantile(x, 0.25)
-  Q3 = quantile(x, 0.75)
-  IQR = Q3 - Q1
-  lower_bound = Q1 - 1.5 * IQR
-  upper_bound = Q3 + 1.5 * IQR
-  x[x < lower_bound] = lower_bound
-  x[x > upper_bound] = upper_bound
-  return(x)
-}
+missing_rows = anti_join(BodyFat, BodyFat_cleaned, by = colnames(BodyFat))
 
-bodyfat_data_v2 = BodyFat
-df_numeric = BodyFat[sapply(BodyFat, is.numeric)]
-df_capped = as.data.frame(lapply(df_numeric, cap_outliers))
-bodyfat_data_v2[sapply(df, is.numeric)] = df_capped
-bodyfat_data_v2 = remove_outliers(bodyfat_data_v2);
+# Display the missing rows
+print(missing_rows)
 ```
+
+There is one individual in the dataset with an extremely high BMI (Adiposity) and weight, both of which significantly exceed the upper quartile. Additionally, there is a person with a height of 29.5 inches, which is unusually low for an adult male and therefore likely an error. Furthermore, two individuals have similar weights, heights, and other features, but both exhibit an abnormally low body fat percentage. We will exclude these data points as outliers.
+
+
 
 
 ```{r}
 # Build the linear regression model using ADIPOSITY, ABDOMEN, and AGE to predict BODYFAT
-model = lm(BODYFAT ~ ADIPOSITY + ABDOMEN + AGE, data = bodyfat_data_v2)
-summary(model)
+model_BMI_ABDOMEN_Age = lm(BODYFAT ~ ADIPOSITY + ABDOMEN + AGE, data = BodyFat_cleaned)
+summary(model_BMI_ABDOMEN_Age)
+```
+
+```{r}
+model_BMI_ABDOMEN = lm(BODYFAT ~ ADIPOSITY + ABDOMEN, data = BodyFat_cleaned)
+summary(model_BMI_ABDOMEN)
 ```
 
 
-
 ```{r}
-head(predict(model, bodyfat_data_v2, interval = "confidence"))
+model_BMI = lm(BODYFAT ~ ADIPOSITY, data = BodyFat_cleaned)
+summary(model_BMI)
 ```
 
 
+```{r}
+model_BACHW = lm(BODYFAT ~ ADIPOSITY + ABDOMEN + CHEST + HIP + WRIST, data = BodyFat_cleaned)
+summary(model_BACHW)
+```
 
+```{r}
+mse = function(model){
+  return (mean(model$residuals^2))
+}
+
+model_metrics <- data.frame(
+  Model = c("model_BMI_ABDOMEN_Age", "model_BMI_ABDOMEN", "model_BMI", "model_BACHW"),
+  R2 = c(summary(model_BMI_ABDOMEN_Age)$r.squared, 
+         summary(model_BMI_ABDOMEN)$r.squared, 
+         summary(model_BMI)$r.squared, 
+         summary(model_BACHW)$r.squared),  
+  MSE = c(mse(model_BMI_ABDOMEN_Age), 
+          mse(model_BMI_ABDOMEN), 
+          mse(model_BMI), 
+          mse(model_BACHW))
+)
+```
+
+```{r}
+ggplot(model_metrics, aes(x = MSE, y = R2, color = Model, label = Model)) +
+  geom_point(size = 3) +               
+  labs(title = "MSE vs R^2 for Different Models", x = "Mean Squared Error (MSE)", y = "R^2") +
+  scale_x_continuous(limits = c(15, 30)) +  
+  scale_y_continuous(limits = c(0, 1)) +
+  theme_minimal() +
+  theme(legend.position = "right") 
+```
+
+## Below graph is based on the model "model_BMI_ABDOMEN_Age"
 
 ```{r}
 
-predicted_values = predict(model, bodyfat_data)
-ggplot(bodyfat_data, aes(x = BODYFAT, y = predicted_values)) +
+predicted_values = predict(model_BMI_ABDOMEN_Age, BodyFat_cleaned)
+ggplot(BodyFat_cleaned, aes(x = BODYFAT, y = predicted_values)) +
   geom_point(color = "blue") +
   geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") +
   labs(title = "Actual vs Predicted Body Fat", x = "Actual Body Fat (%)", y = "Predicted Body Fat (%)") +
@@ -144,8 +190,8 @@ ggplot(bodyfat_data, aes(x = BODYFAT, y = predicted_values)) +
 
 ```{r}
  # Residual plot
-residuals = model$residuals
-ggplot(bodyfat_data_v2, aes(x = predict(model), y = residuals)) +
+residuals = model_BMI_ABDOMEN_Age$residuals
+ggplot(BodyFat_cleaned, aes(x = predict(model_BMI_ABDOMEN_Age), y = residuals)) +
   geom_point() +
   geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
   labs(title = "Residual Plot", x = "Predicted Values", y = "Residuals") +
@@ -158,7 +204,7 @@ ggplot(bodyfat_data_v2, aes(x = predict(model), y = residuals)) +
 
 ```{r}
 ggplot() +
-  geom_histogram(aes(x = bodyfat_data_v2$BODYFAT), fill = "blue", alpha = 0.5, bins = 30) +
+  geom_histogram(aes(x = BodyFat_cleaned$BODYFAT), fill = "blue", alpha = 0.5, bins = 30) +
   geom_histogram(aes(x = predicted_values), fill = "green", alpha = 0.5, bins = 30) +
   labs(title = "Distribution of Actual vs Predicted Body Fat", x = "Body Fat (%)", y = "Count") +
   theme_minimal()
@@ -178,14 +224,14 @@ ggplot(data = data.frame(residuals), aes(sample = residuals)) +
 
 ```{r}
 # Pii's value chart 
-pii_BA = hatvalues(model)
+pii_BA = hatvalues(model_BMI_ABDOMEN_Age)
 par(mfrow = c(2,1))
-n = dim(bodyfat_data_v2)[1]
+n = dim(BodyFat_cleaned)[1]
 plot(1:n,pii_BA,type="p",pch=19,cex=1,cex.lab=1.5,
      xlab="Index (Each Observation)",ylab="Pii",main="Leverage Values (Pii for BodyFat and Adiposity)")
 
 # Cook's distance chart 
-cooki_BA = cooks.distance(model)
+cooki_BA = cooks.distance(model_BMI_ABDOMEN_Age)
 plot(1:n,cooki_BA,type="p",pch=19,cex=1,cex.lab=1.5,
      xlab="Index (Each Observation)",ylab="Cook's Distance",main="Influence Values (Cook's Distance for BodyFat and Adiposity)")
 ```
