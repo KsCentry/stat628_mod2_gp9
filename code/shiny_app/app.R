@@ -1,7 +1,7 @@
 library(shiny)
 library(ggplot2)
 
-bodyfat_data = read.csv("../data/BodyFat.csv")
+bodyfat_data = read.csv("BodyFat_cleaned.csv")
 
 remove_outliers = function(data) {
   data = data[data$BODYFAT >= 3 & data$BODYFAT <= 60, ]

@@ -1,0 +1,10 @@
+name: shiny_app
+title:
+username: hyang644
+account: hyang644
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 12993751
+bundleId: 9212446
+url: https://hyang644.shinyapps.io/shiny_app/
+version: 1

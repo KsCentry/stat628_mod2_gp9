@@ -33,12 +33,12 @@ summary(BodyFat)
 df_numeric = BodyFat[, -1] 
 
 # Calculate the correlation matrix
-cor_matrix = cor(df_numeric)
+cor_matrix = cor(df_numeric[7:16])
 
 # Visualize the correlation matrix
-corrplot(cor_matrix, method = "color", type = "upper", 
-         tl.col = "black", tl.srt = 45, 
-         col = colorRampPalette(c("blue", "white", "red"))(200),
+corrplot(cor_matrix, method = "color", type = "lower", 
+         tl.col = "black", tl.srt = 30, 
+         col = colorRampPalette(c("white", "red"))(100),
          title = "Correlation Matrix")
 
 # Considering the strong correlation between body fat and Abdomen as one of the 
@@ -107,7 +107,8 @@ remove_outliers = function(data) {
 }
 
 BodyFat_cleaned = remove_outliers(BodyFat)
-write.csv2(BodyFat_cleaned, file = "../data/BodyFat_cleaned.csv")
+write.csv(BodyFat_cleaned, file = "../data/BodyFat_cleaned.csv")
+write.csv(BodyFat_cleaned, file = "../code/shiny_app/BodyFat_cleaned.csv")
 ```
 
 ```{r}
