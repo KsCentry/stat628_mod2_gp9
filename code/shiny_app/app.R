@@ -11,7 +11,7 @@ ui = fluidPage(
   
   sidebarLayout(
     sidebarPanel(
-      numericInput("waistline", "Enter your waistline (in cm):", value = NA),
+      numericInput("abdomen", "Enter your waistline (in cm):", value = NA),
       numericInput("wrist", "Enter your wrist circumference (in cm):", value = NA),
       numericInput("age", "Enter your age (years):", value = 20),
       actionButton("predict", "Predict Body Fat"),

@@ -6,44 +6,39 @@ This repository contains all the necessary data, code, and resources for analyzi
 
 ### Directory Structure
 
-- **data/**: This folder contains all the raw and cleaned datasets used in the analysis. Raw data is kept in its original form, while cleaned data is prepared for analysis.
-  
-- **code/**: This folder includes all the code necessary for data cleaning, analysis, and generating visual outputs (such as tables and figures). It also contains the Shiny app code that serves as the base for the body fat prediction app.
-  
-- **image/**: This folder contains figures, images, and tables generated throughout the analysis. Any graphical outputs produced by the analysis are stored here.
-  
-- **summary.pdf**: A two-page PDF summarizing the findings and key results from the analysis and prediction model.
-  
-- **presentation_slides.pdf**: The final presentation slides providing an overview of the project, methodology, and results.
+-   **data/**: This folder contains the raw and cleaned datasets used in the analysis. Raw data is kept in its original form, while cleaned data is prepared for analysis.
+
+-   **code/**: This folder includes all the code necessary for data cleaning, analysis, and generating visual outputs (such as tables and figures). It also contains the Shiny app code that serves as the base for the body fat prediction app.
+
+-   **image/**: This folder contains figures, images, and tables generated throughout the analysis.
+
+-   **summary.pdf**: A two-page PDF summarizing the findings and key results from the analysis and prediction model.
+
+-   **presentation_slides.pdf**: The final presentation slides providing an overview of the project, methodology, and results.
 
 ### How to Use the Code
 
-1. **Data Preparation**:
-   - Place the raw dataset(s) in the `data/` folder.
-   - If any cleaning or preprocessing is required, the cleaning scripts inside the `code/` folder will handle it. Make sure to follow the scripts' instructions or modify them as needed.
+1.  **Data Preparation**:
+    -   Place the raw dataset(s) in the `data/` folder.
+    -   If any cleaning or preprocessing is required, the cleaning scripts inside the `code/` folder will handle it. Make sure to follow the scripts' instructions or modify them as needed.
+2.  **Running the Analysis**:
+    -   The `code/` folder contains scripts for analyzing the data and generating results, figures, and tables. Run the appropriate scripts sequentially for data cleaning and analysis.
+    -   If you need to modify the analysis (e.g., changing variables or models), adjust the R code files accordingly.
+3.  **Shiny App**:
+    -   The Shiny app for predicting body fat percentage is also located in the `code/` folder. The app allows users to input data and generate predictions based on the models created.
 
-2. **Running the Analysis**:
-   - The `code/` folder contains scripts for analyzing the data and generating results, figures, and tables. Run the appropriate scripts sequentially for data cleaning and analysis.
-   - If you need to modify the analysis (e.g., changing variables or models), adjust the R code files accordingly.
+    -   Our app is hosted here, just try it!
 
-3. **Shiny App**:
-   - The Shiny app for predicting body fat percentage is also located in the `code/` folder. The app allows users to input data (height, weight, etc.) and generate predictions based on the models created.
-   - To launch the Shiny app:
-     1. Open R or RStudio.
-     2. Load the necessary libraries (e.g., `shiny`, `ggplot2`).
-     3. Run the app by sourcing the relevant script in the `code/` folder, typically using:
-        ```R
-        shiny::runApp('code/')
-        ```
-     4. The app will launch in a browser window, where you can input the necessary values and get predictions.
-
-4. **Viewing Results**:
-   - All graphical outputs, such as figures and tables, will be generated and saved in the `image/` folder. These can be used for reports or presentations.
-   - The final presentation slides and summary PDF are available in the root directory for easy reference.
+        <https://hyang644.shinyapps.io/shiny_app/>
+4.  **Viewing Results**:
+    -   All graphical outputs, such as figures and tables, will be generated and saved in the `image/` folder. These can be used for reports or presentations.
+    -   The final presentation slides and summary PDF are available in the root directory for easy reference.
 
 ### Additional Notes
-- **System Requirements**: This project requires R (version 3.6 or above) and the following libraries: `shiny`, `ggplot2`, and other necessary R packages listed in the respective scripts.
-- **Custom Modifications**: If you wish to modify the models (e.g., adding more predictors or changing the analysis), adjust the code in the `code/` folder accordingly.
+
+-   **System Requirements**: This project requires R (version 3.6 or above) and the following libraries: `shiny`, `ggplot2`, `corrplot`, `dplyr`, `car`, `fmsb`.
+-   **Custom Modifications**: If you wish to modify the models (e.g., adding more predictors or changing the analysis), adjust the code in the `code/` folder accordingly.
 
 ### Group Members
+
 Hengyu Yang, Leyan Sun, Tianle Qiu, Yi Ma
