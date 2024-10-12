@@ -155,7 +155,7 @@ summary(model_AW_AGE)
 ```
 The coefficient  of age is significant, retain it.
 
-Our final model: BODYFAT ~ ABDOMEN + WRIST +AGE
+Our final model: BODYFAT ~ ABDOMEN + WRIST + AGE
 
 # GRAPHS
 
@@ -191,7 +191,6 @@ ggplot(model_metrics, aes(x = MSE, y = R2, color = Model, label = Model)) +
 
 
 ```{r}
-
 predicted_values = predict(model_BMI_ABDOMEN_Age, BodyFat_cleaned)
 ggplot(BodyFat_cleaned, aes(x = BODYFAT, y = predicted_values)) +
   geom_point(color = "blue") +
