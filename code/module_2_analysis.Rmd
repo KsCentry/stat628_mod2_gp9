@@ -4,75 +4,18 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
-
-
-```{r}
 library(corrplot)
 library(dplyr)
 library(ggplot2)
 ```
 
+# Data load and summary
+
 ```{r}
-getwd()
 BodyFat = read.csv("../data/BodyFat.csv")
-# Observe dataset.
-dim(BodyFat)
-head(BodyFat)
-tail(BodyFat)
 summary(BodyFat)
 ```
-
-
-
-
-## Correlation Matrix
-
-```{r}
-df_numeric = BodyFat[, -1] 
-
-# Calculate the correlation matrix
-cor_matrix = cor(df_numeric[7:16])
-
-# Visualize the correlation matrix
-corrplot(cor_matrix, method = "color", type = "lower", 
-         tl.col = "black", tl.srt = 30, 
-         col = colorRampPalette(c("white", "red"))(100),
-         title = "Correlation Matrix")
-
-# Considering the strong correlation between body fat and Abdomen as one of the 
-# feature for the model
-```
-
-**Adiposity** is chosen because it is directly related to fat accumulation and distribution, making it a highly predictive feature for body fat.\
-**Abdomen**: The abdominal region is often a key indicator of central obesity and correlates strongly with body fat, particularly visceral fat.\
-**Age**: Including age accounts for physiological changes over time that can affect body fat, such as hormonal changes or metabolism.\
-**Chest and Hip**: These are additional body circumferences that reflect fat distribution across different parts of the body, complementing abdomen measurements.\
-**Wrist**: This may be used as a control variable, as wrist circumference often does not change much with body fat, serving as an indicator of bone size or frame size, which can help normalize other measures of body size.
-
-
-
-```{r}
-# Assign dataset columns to easy-to-access vectors.
-BODYFAT = BodyFat$BODYFAT
-AGE = BodyFat$AGE
-WEIGHT = BodyFat$WEIGHT
-ADIPOSITY = BodyFat$ADIPOSITY
-
-# Visualize histograms for body fat, age, weight, and adiposity.
-m_1  = matrix(c(1,2,3,4), nrow = 2, ncol  =2, byrow = TRUE)
-layout(m_1)
-hist(BODYFAT,breaks=30, ylim = c(0, 40), cex.lab=1.5,cex.main=1.5,
-     main="Histogram of Body Fat %",xlab="Body Fat %")
-hist(AGE,breaks=30, ylim = c(0, 25), cex.lab=1.5,cex.main=1.5,
-     main="Histogram of Age",xlab="Age (yrs)")
-hist(WEIGHT,breaks=30, xlim = c(40, 160), cex.lab=1.5,cex.main=1.5,
-     main="Histogram of Weight",xlab="Weight (kg)")
-hist(ADIPOSITY,breaks=30, ylim  = c(0, 40), cex.lab=1.5,cex.main=1.5,
-     main="Histogram of ADIPOSITY",xlab="ADIPOSITY(BMI)")
-```
-
+Box plot of 3 suspect variables
 
 ```{r}
 layout(matrix(c(1:3), nrow = 1, ncol = 3, byrow = TRUE))
@@ -94,57 +37,129 @@ boxplot(BodyFat$HEIGHT,
         col = "lightblue",
         outline = TRUE)
 ```
+# Data cleaning
 
+Data Cleaning for Body Fat Prediction:
+**Remove BMI Outliers**:
+We filter out any observations with BMI > 40 to avoid skewing the regression model with extreme values.
 
-```{r}
-# robust method filter outlier
-remove_outliers = function(data) {
-  data = data[data$BODYFAT >= 3 & data$BODYFAT <= 50, ]
-  data = data[data$ADIPOSITY >= 10 & data$ADIPOSITY <= 50, ]
-  data = data[data$ABDOMEN >= 60 & data$ABDOMEN <= 140, ]
-  data = data[data$HEIGHT >= 48 & data$HEIGHT <= 84, ]
-  return(data)
-}
+**Update Height for Sample 42**:
+For sample 42, which has an abnormally low height, we recalculate height using the recorded BMI and weight to ensure data consistency.
 
-BodyFat_cleaned = remove_outliers(BodyFat)
-write.csv(BodyFat_cleaned, file = "../data/BodyFat_cleaned.csv")
-write.csv(BodyFat_cleaned, file = "../code/shiny_app/BodyFat_cleaned.csv")
-```
+**Re-estimate Low Body Fat**:
+For individuals with body fat < 7%, we use a linear regression model trained on data where body fat ≥ 7% to provide more reasonable estimates.
 
 ```{r}
-missing_rows = anti_join(BodyFat, BodyFat_cleaned, by = colnames(BodyFat))
+BodyFat = BodyFat[!(BodyFat$ADIPOSITY > 40), ]
+BodyFat[42, ]$HEIGHT = sqrt(BodyFat[42, ]$WEIGHT / BodyFat[42, ]$ADIPOSITY * 703)
 
-# Display the missing rows
-print(missing_rows)
-```
+low_bodyfat_index = which(BodyFat$BODYFAT < 7)
+model <- lm(BODYFAT ~ AGE + ADIPOSITY + ABDOMEN + CHEST + HIP + THIGH,
+            data = BodyFat[BodyFat$BODYFAT >= 7, ])
+predicted_bodyfat = predict(model, newdata = BodyFat[low_bodyfat_index, ])
+BodyFat$BODYFAT[low_bodyfat_index] <- predicted_bodyfat
 
-There is one individual in the dataset with an extremely high BMI (Adiposity) and weight, both of which significantly exceed the upper quartile. Additionally, there is a person with a height of 29.5 inches, which is unusually low for an adult male and therefore likely an error. Furthermore, two individuals have similar weights, heights, and other features, but both exhibit an abnormally low body fat percentage. We will exclude these data points as outliers.
-
-
-
-
-```{r}
-# Build the linear regression model using ADIPOSITY, ABDOMEN, and AGE to predict BODYFAT
-model_BMI_ABDOMEN_Age = lm(BODYFAT ~ ADIPOSITY + ABDOMEN + AGE, data = BodyFat_cleaned)
-summary(model_BMI_ABDOMEN_Age)
-```
-
-```{r}
-model_BMI_ABDOMEN = lm(BODYFAT ~ ADIPOSITY + ABDOMEN, data = BodyFat_cleaned)
-summary(model_BMI_ABDOMEN)
+write.csv(BodyFat, file = "../data/BodyFat_cleaned.csv", row.names = FALSE)
+write.csv(BodyFat, file = "../code/shiny_app/BodyFat_cleaned.csv", row.names = FALSE)
 ```
 
 
+# Varible selection
+
+BMI (Body Mass Index) is calculated from height and weight, so including all three variables would introduce redundancy and potential multicollinearity. By keeping only BMI, we retain the information about the relationship between height and weight in a single variable.
+
+DENSITY is impossible to evaluate in practice, remove it as well.
+
 ```{r}
-model_BMI = lm(BODYFAT ~ ADIPOSITY, data = BodyFat_cleaned)
-summary(model_BMI)
+BodyFat_cleaned = read.csv("../data/BodyFat_cleaned.csv")
+BodyFat_cleaned <- subset(BodyFat_cleaned, select = -c(WEIGHT, HEIGHT, IDNO, DENSITY))
 ```
 
+## Correlation Matrix of Circumference Varibles
 
 ```{r}
-model_BACHW = lm(BODYFAT ~ ADIPOSITY + ABDOMEN + CHEST + HIP + WRIST, data = BodyFat_cleaned)
-summary(model_BACHW)
+cor_matrix = cor(BodyFat[8:17])
+
+par(mar = c(5, 4, 4, 2) + 0.1)
+corrplot(cor_matrix, method = "color", type = "lower", 
+         tl.col = "black", tl.srt = 30, 
+         col = colorRampPalette(c("white", "lightcoral", "red", "darkred"))(100),
+         title = "Correlation Matrix", 
+         mar = c(0, 0, 2, 0),
+         col.lim = c(0, 1))
+
+BodyFat_cleaned <- subset(BodyFat_cleaned, select = -c(ANKLE, FOREARM))
 ```
+
+I removed the variables **ANKLE** and **FOREARM** based on their relatively low correlations, as shown in the correlation matrix. These variables displayed lighter colors. By eliminating variables with low correlations, I aimed to focus on variables that contribute more significantly to the model.
+
+
+During some regression attempts, we find that there are strong correlation (0.916) between ADIPOSITY and ABDOMEN, and the regression coefficient of ABDOMEN is significant, so ADIPOSITY is eliminated.
+
+```{r}
+plot(BodyFat_cleaned$ADIPOSITY, BodyFat_cleaned$ABDOMEN,
+     xlab = "BMI", ylab = "ABDOMEN")
+abline(lm(BodyFat_cleaned$ABDOMEN ~ BodyFat_cleaned$ADIPOSITY), col = "red")
+BodyFat_cleaned <- subset(BodyFat_cleaned, select = -ADIPOSITY)
+```
+## VIF
+
+```{r}
+library(car)
+library(cvTools)
+
+model <- lm(BODYFAT ~ NECK + CHEST + ABDOMEN + HIP + THIGH + KNEE + BICEPS + WRIST, data = BodyFat_cleaned)
+summary(model)
+print(vif(model))
+BodyFat_cleaned <- subset(BodyFat_cleaned, select = -THIGH)
+```
+It might be more reasonable to remove THIGH first, as it has both a high p-value (indicating low significance) and a moderately high VIF (5.799). This way, you reduce multicollinearity without sacrificing too much statistical significance.
+
+
+## Stepwise regression
+
+```{r}
+stepwise_model <- step(model, direction = "backward")
+summary(stepwise_model)
+```
+
+Stepwise regression is a method used to simplify a regression model by automatically selecting the most relevant variables, either by adding or removing them, based on certain criteria like the **Akaike Information Criterion (AIC)** or **p-values**. The goal is to improve the model's performance by retaining only the variables that provide the most explanatory power and removing those that do not significantly contribute to the model. 
+
+**backward elimination**, which systematically removed the least significant variables until the remaining set of predictors had strong statistical justification for staying in the model.
+
+After performing stepwise backward elimination, the final model retained four key variables: **CHEST**, **ABDOMEN**, **HIP**, and **WRIST**. 
+
+- **ABDOMEN** (p-value < 2e-16): This variable is the most significant predictor of body fat percentage, with a strong positive coefficient. It suggests that abdominal measurements are highly correlated with body fat.
+  
+- **WRIST** (p-value = 2.88e-06): WRIST circumference also shows strong significance with a large negative coefficient, indicating its importance in predicting body fat.
+  
+- **HIP** (p-value = 0.0136): HIP showed some multicollinearity concerns earlier, we consider to drop it in this step.
+  
+- **CHEST** (p-value = 0.0671): While marginally significant, CHEST contributes weakly to the model but was still retained, possibly due to its relation to body fat distribution in the upper body, drop it as well
+
+We retain ABDOMEN and WRIST at last.
+
+
+
+```{r}
+BodyFat_cleaned <- subset(BodyFat_cleaned, select = -c(HIP, CHEST, NECK, KNEE, BICEPS))
+model_AW = lm(BODYFAT ~ ABDOMEN + WRIST, data = BodyFat_cleaned)
+summary(model_AW)
+```
+
+## Check if age helps model prediction.
+
+```{r}
+model_AW_AGE = lm(BODYFAT ~ ABDOMEN + WRIST + AGE, data = BodyFat_cleaned)
+summary(model_AW_AGE)
+```
+The coefficient  of age is significant, retain it.
+
+Our final model: BODYFAT ~ ABDOMEN + WRIST +AGE
+
+# GRAPHS
+
+TO BE FINISHED
 
 ```{r}
 mse = function(model){
@@ -174,7 +189,6 @@ ggplot(model_metrics, aes(x = MSE, y = R2, color = Model, label = Model)) +
   theme(legend.position = "right") 
 ```
 
-## Below graph is based on the model "model_BMI_ABDOMEN_Age"
 
 ```{r}
 
@@ -185,9 +199,6 @@ ggplot(BodyFat_cleaned, aes(x = BODYFAT, y = predicted_values)) +
   labs(title = "Actual vs Predicted Body Fat", x = "Actual Body Fat (%)", y = "Predicted Body Fat (%)") +
   theme_minimal()
 ```
-
-
-
 
 ```{r}
  # Residual plot
@@ -200,9 +211,6 @@ ggplot(BodyFat_cleaned, aes(x = predict(model_BMI_ABDOMEN_Age), y = residuals)) 
 
 ```
 
-
-
-
 ```{r}
 ggplot() +
   geom_histogram(aes(x = BodyFat_cleaned$BODYFAT), fill = "blue", alpha = 0.5, bins = 30) +
@@ -210,7 +218,6 @@ ggplot() +
   labs(title = "Distribution of Actual vs Predicted Body Fat", x = "Body Fat (%)", y = "Count") +
   theme_minimal()
 ```
-
 
 ```{r}
 ggplot(data = data.frame(residuals), aes(sample = residuals)) +
@@ -221,7 +228,6 @@ ggplot(data = data.frame(residuals), aes(sample = residuals)) +
        y = "Sample Quantiles") +
   theme_minimal()
 ```
-
 
 ```{r}
 # Pii's value chart 
@@ -236,10 +242,3 @@ cooki_BA = cooks.distance(model_BMI_ABDOMEN_Age)
 plot(1:n,cooki_BA,type="p",pch=19,cex=1,cex.lab=1.5,
      xlab="Index (Each Observation)",ylab="Cook's Distance",main="Influence Values (Cook's Distance for BodyFat and Adiposity)")
 ```
-
-
-
-
-
-
-

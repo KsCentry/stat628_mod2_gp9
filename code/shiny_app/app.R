@@ -3,16 +3,6 @@ library(ggplot2)
 
 bodyfat_data = read.csv("BodyFat_cleaned.csv")
 
-remove_outliers = function(data) {
-  data = data[data$BODYFAT >= 3 & data$BODYFAT <= 60, ]
-  data = data[data$ADIPOSITY >= 15 & data$ADIPOSITY <= 40, ]
-  data = data[data$ABDOMEN >= 60 & data$ABDOMEN <= 140, ]
-  
-  return(data)
-}
-
-bodyfat_data = remove_outliers(bodyfat_data)
-
 complex_model = lm(BODYFAT ~ ADIPOSITY + ABDOMEN + AGE, data = bodyfat_data)
 simple_model = lm(BODYFAT ~ WEIGHT + HEIGHT, data = bodyfat_data)
 
