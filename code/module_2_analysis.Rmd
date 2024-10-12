@@ -7,6 +7,9 @@ output: html_document
 library(corrplot)
 library(dplyr)
 library(ggplot2)
+library(car)
+library(cvTools)
+library(fmsb)
 ```
 
 # Data load and summary
@@ -54,10 +57,10 @@ BodyFat = BodyFat[!(BodyFat$ADIPOSITY > 40), ]
 BodyFat[42, ]$HEIGHT = sqrt(BodyFat[42, ]$WEIGHT / BodyFat[42, ]$ADIPOSITY * 703)
 
 low_bodyfat_index = which(BodyFat$BODYFAT < 7)
-model <- lm(BODYFAT ~ AGE + ADIPOSITY + ABDOMEN + CHEST + HIP + THIGH,
+model = lm(BODYFAT ~ AGE + ADIPOSITY + ABDOMEN + CHEST + HIP + THIGH,
             data = BodyFat[BodyFat$BODYFAT >= 7, ])
 predicted_bodyfat = predict(model, newdata = BodyFat[low_bodyfat_index, ])
-BodyFat$BODYFAT[low_bodyfat_index] <- predicted_bodyfat
+BodyFat$BODYFAT[low_bodyfat_index] = predicted_bodyfat
 
 write.csv(BodyFat, file = "../data/BodyFat_cleaned.csv", row.names = FALSE)
 write.csv(BodyFat, file = "../code/shiny_app/BodyFat_cleaned.csv", row.names = FALSE)
@@ -72,7 +75,7 @@ DENSITY is impossible to evaluate in practice, remove it as well.
 
 ```{r}
 BodyFat_cleaned = read.csv("../data/BodyFat_cleaned.csv")
-BodyFat_cleaned <- subset(BodyFat_cleaned, select = -c(WEIGHT, HEIGHT, IDNO, DENSITY))
+BodyFat_cleaned = subset(BodyFat_cleaned, select = -c(WEIGHT, HEIGHT, IDNO, DENSITY))
 ```
 
 ## Correlation Matrix of Circumference Varibles
@@ -88,7 +91,7 @@ corrplot(cor_matrix, method = "color", type = "lower",
          mar = c(0, 0, 2, 0),
          col.lim = c(0, 1))
 
-BodyFat_cleaned <- subset(BodyFat_cleaned, select = -c(ANKLE, FOREARM))
+BodyFat_cleaned = subset(BodyFat_cleaned, select = -c(ANKLE, FOREARM))
 ```
 
 I removed the variables **ANKLE** and **FOREARM** based on their relatively low correlations, as shown in the correlation matrix. These variables displayed lighter colors. By eliminating variables with low correlations, I aimed to focus on variables that contribute more significantly to the model.
@@ -100,18 +103,15 @@ During some regression attempts, we find that there are strong correlation (0.91
 plot(BodyFat_cleaned$ADIPOSITY, BodyFat_cleaned$ABDOMEN,
      xlab = "BMI", ylab = "ABDOMEN")
 abline(lm(BodyFat_cleaned$ABDOMEN ~ BodyFat_cleaned$ADIPOSITY), col = "red")
-BodyFat_cleaned <- subset(BodyFat_cleaned, select = -ADIPOSITY)
+BodyFat_cleaned = subset(BodyFat_cleaned, select = -ADIPOSITY)
 ```
 ## VIF
 
 ```{r}
-library(car)
-library(cvTools)
-
-model <- lm(BODYFAT ~ NECK + CHEST + ABDOMEN + HIP + THIGH + KNEE + BICEPS + WRIST, data = BodyFat_cleaned)
+model = lm(BODYFAT ~ NECK + CHEST + ABDOMEN + HIP + THIGH + KNEE + BICEPS + WRIST, data = BodyFat_cleaned)
 summary(model)
 print(vif(model))
-BodyFat_cleaned <- subset(BodyFat_cleaned, select = -THIGH)
+BodyFat_cleaned = subset(BodyFat_cleaned, select = -THIGH)
 ```
 It might be more reasonable to remove THIGH first, as it has both a high p-value (indicating low significance) and a moderately high VIF (5.799). This way, you reduce multicollinearity without sacrificing too much statistical significance.
 
@@ -119,7 +119,7 @@ It might be more reasonable to remove THIGH first, as it has both a high p-value
 ## Stepwise regression
 
 ```{r}
-stepwise_model <- step(model, direction = "backward")
+stepwise_model = step(model, direction = "backward")
 summary(stepwise_model)
 ```
 
@@ -142,16 +142,17 @@ We retain ABDOMEN and WRIST at last.
 
 
 ```{r}
-BodyFat_cleaned <- subset(BodyFat_cleaned, select = -c(HIP, CHEST, NECK, KNEE, BICEPS))
-model_AW = lm(BODYFAT ~ ABDOMEN + WRIST, data = BodyFat_cleaned)
-summary(model_AW)
+model3 = lm(BODYFAT ~ ABDOMEN + WRIST + HIP + CHEST, data = BodyFat_cleaned)
+BodyFat_cleaned = subset(BodyFat_cleaned, select = -c(HIP, CHEST, NECK, KNEE, BICEPS))
+model1 = lm(BODYFAT ~ ABDOMEN + WRIST, data = BodyFat_cleaned)
+summary(model1)
 ```
 
 ## Check if age helps model prediction.
 
 ```{r}
-model_AW_AGE = lm(BODYFAT ~ ABDOMEN + WRIST + AGE, data = BodyFat_cleaned)
-summary(model_AW_AGE)
+model2 = lm(BODYFAT ~ ABDOMEN + WRIST + AGE, data = BodyFat_cleaned)
+summary(model2)
 ```
 The coefficient  of age is significant, retain it.
 
@@ -159,39 +160,57 @@ Our final model: BODYFAT ~ ABDOMEN + WRIST + AGE
 
 # GRAPHS
 
-TO BE FINISHED
+## Model comparison radar chart
 
 ```{r}
-mse = function(model){
-  return (mean(model$residuals^2))
-}
-
-model_metrics <- data.frame(
-  Model = c("model_BMI_ABDOMEN_Age", "model_BMI_ABDOMEN", "model_BMI", "model_BACHW"),
-  R2 = c(summary(model_BMI_ABDOMEN_Age)$r.squared, 
-         summary(model_BMI_ABDOMEN)$r.squared, 
-         summary(model_BMI)$r.squared, 
-         summary(model_BACHW)$r.squared),  
-  MSE = c(mse(model_BMI_ABDOMEN_Age), 
-          mse(model_BMI_ABDOMEN), 
-          mse(model_BMI), 
-          mse(model_BACHW))
+model_stats = data.frame(
+  R2 = c(summary(model1)$r.squared, summary(model2)$r.squared, summary(model3)$r.squared),
+  Adj_R2 = c(summary(model1)$adj.r.squared, summary(model2)$adj.r.squared, summary(model3)$adj.r.squared),
+  AIC = c(AIC(model1), AIC(model2), AIC(model3)),
+  BIC = c(BIC(model1), BIC(model2), BIC(model3)),
+  MSE = c(mean(residuals(model1)^2), mean(residuals(model2)^2), mean(residuals(model3)^2)),
+  RSE = c(summary(model1)$sigma, summary(model2)$sigma, summary(model3)$sigma)
 )
+
+rownames(model_stats) = c("Model_1", "Model_2", "Model_3")
+print(model_stats)
 ```
 
 ```{r}
-ggplot(model_metrics, aes(x = MSE, y = R2, color = Model, label = Model)) +
-  geom_point(size = 3) +               
-  labs(title = "MSE vs R^2 for Different Models", x = "Mean Squared Error (MSE)", y = "R^2") +
-  scale_x_continuous(limits = c(15, 30)) +  
-  scale_y_continuous(limits = c(0, 1)) +
-  theme_minimal() +
-  theme(legend.position = "right") 
+max_min <- data.frame(
+  R2 = c(0.733, 0.718), Adj_R2 = c(0.73, 0.715), AIC = c(1395, 1375),
+  BIC = c(1406, 1400), MSE = c(14.5, 13.8), RSE = c(3.85, 3.72)
+)
+radar_data <- rbind(max_min[1, ], max_min[2, ], model_stats)
+
+radarchart(radar_data, axistype = 1,
+           pcol = c("#66CDAA", "#FF6347", "#8A2BE2"),
+           pfcol = c(rgb(102/255, 205/255, 170/255, 0.3),
+                     rgb(255/255, 99/255, 71/255, 0.6),
+                     rgb(138/255, 43/255, 226/255, 0.2)),
+           title = "Model Performance Comparison",
+           cglcol = "grey",
+           cglty = 1, 
+           axislabcol = "black", 
+           caxislabels = seq(0, 1, 0.2),
+           vlcex = 0.8)
+
+legend("right", legend = rownames(radar_data)[3:5],
+       col = c("#66CDAA", "#FF6347", "#8A2BE2"),
+       pch = 15, 
+       bty = "o",
+       title = "Models")
+
 ```
 
+From this radar chart, we can see that, for AIC, BIC, RSE and MSE, model_2 has small values.
+Compared to model_3, which has four variables of circumference measures, the R2 and Adj_R2 values are very close of model_2. So model_2 is the ideal model.
+
+
+## Some tests of momdel
 
 ```{r}
-predicted_values = predict(model_BMI_ABDOMEN_Age, BodyFat_cleaned)
+predicted_values = predict(model2, BodyFat_cleaned)
 ggplot(BodyFat_cleaned, aes(x = BODYFAT, y = predicted_values)) +
   geom_point(color = "blue") +
   geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") +
@@ -199,24 +218,7 @@ ggplot(BodyFat_cleaned, aes(x = BODYFAT, y = predicted_values)) +
   theme_minimal()
 ```
 
-```{r}
- # Residual plot
-residuals = model_BMI_ABDOMEN_Age$residuals
-ggplot(BodyFat_cleaned, aes(x = predict(model_BMI_ABDOMEN_Age), y = residuals)) +
-  geom_point() +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
-  labs(title = "Residual Plot", x = "Predicted Values", y = "Residuals") +
-  theme_minimal()
-
-```
-
-```{r}
-ggplot() +
-  geom_histogram(aes(x = BodyFat_cleaned$BODYFAT), fill = "blue", alpha = 0.5, bins = 30) +
-  geom_histogram(aes(x = predicted_values), fill = "green", alpha = 0.5, bins = 30) +
-  labs(title = "Distribution of Actual vs Predicted Body Fat", x = "Body Fat (%)", y = "Count") +
-  theme_minimal()
-```
+QQ plot of residuals
 
 ```{r}
 ggplot(data = data.frame(residuals), aes(sample = residuals)) +
@@ -228,16 +230,3 @@ ggplot(data = data.frame(residuals), aes(sample = residuals)) +
   theme_minimal()
 ```
 
-```{r}
-# Pii's value chart 
-pii_BA = hatvalues(model_BMI_ABDOMEN_Age)
-par(mfrow = c(2,1))
-n = dim(BodyFat_cleaned)[1]
-plot(1:n,pii_BA,type="p",pch=19,cex=1,cex.lab=1.5,
-     xlab="Index (Each Observation)",ylab="Pii",main="Leverage Values (Pii for BodyFat and Adiposity)")
-
-# Cook's distance chart 
-cooki_BA = cooks.distance(model_BMI_ABDOMEN_Age)
-plot(1:n,cooki_BA,type="p",pch=19,cex=1,cex.lab=1.5,
-     xlab="Index (Each Observation)",ylab="Cook's Distance",main="Influence Values (Cook's Distance for BodyFat and Adiposity)")
-```
