@@ -1,8 +1,9 @@
 library(shiny)
 library(ggplot2)
+library(reshape2)
 
 bodyfat_data = read.csv("BodyFat_cleaned.csv")
-
+bodyfat_data = subset(bodyfat_data, select = c(BODYFAT, ABDOMEN, WRIST, AGE))
 model = lm(BODYFAT ~ ABDOMEN + WRIST + AGE, data = bodyfat_data)
 
 ui = fluidPage(
@@ -10,13 +11,10 @@ ui = fluidPage(
   
   sidebarLayout(
     sidebarPanel(
-      numericInput("abdomen", "Enter your abdomen circumference (in cm):", value = NA),
+      numericInput("waistline", "Enter your waistline (in cm):", value = NA),
       numericInput("wrist", "Enter your wrist circumference (in cm):", value = NA),
       numericInput("age", "Enter your age (years):", value = 20),
       actionButton("predict", "Predict Body Fat"),
-      hr(),
-      h4("Model Statistics and Plots"),
-      actionButton("showPlots", "Show Model Plots"),
       hr(),
       h4("Contact Information:"),
       p("For any inquiries, please contact app maintainer:"),
@@ -28,9 +26,9 @@ ui = fluidPage(
       textOutput("prediction_output"),
       textOutput("warning_message"),
       hr(),
-      plotOutput("residual_plot"),
-      plotOutput("scatter_plot"),
-      plotOutput("distribution_plot")
+      img(src = "body_fat_chart.jpg", height = 320, width = 600),
+      img(src = "wrist_measure.jpg", height = 300, width = 300),
+      img(src = "waistline.jpg", height = 200, width = 600),
     )
   )
 )
@@ -93,37 +91,6 @@ server = function(input, output, session) {
       })
       user_confirmed(FALSE)
     }
-  })
-  
-  observeEvent(input$showPlots, {
-    
-    output$residual_plot = renderPlot({
-      residuals = model$residuals
-      ggplot(bodyfat_data, aes(x = predict(model), y = residuals)) +
-        geom_point() +
-        geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
-        labs(title = "Residual Plot", x = "Predicted Values", y = "Residuals") +
-        theme_minimal()
-    })
-    
-    output$scatter_plot = renderPlot({
-      predicted_values = predict(model, bodyfat_data)
-      ggplot(bodyfat_data, aes(x = BODYFAT, y = predicted_values)) +
-        geom_point(color = "blue") +
-        geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") +
-        labs(title = "Actual vs Predicted Body Fat", x = "Actual Body Fat (%)", y = "Predicted Body Fat (%)") +
-        theme_minimal()
-    })
-    
-    # Distribution plot of actual vs predicted body fat
-    output$distribution_plot = renderPlot({
-      predicted_values = predict(model, bodyfat_data)
-      ggplot() +
-        geom_histogram(aes(x = bodyfat_data$BODYFAT), fill = "blue", alpha = 0.5, bins = 30) +
-        geom_histogram(aes(x = predicted_values), fill = "green", alpha = 0.5, bins = 30) +
-        labs(title = "Distribution of Actual vs Predicted Body Fat", x = "Body Fat (%)", y = "Count") +
-        theme_minimal()
-    })
   })
 }
 
