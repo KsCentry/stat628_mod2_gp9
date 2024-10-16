@@ -12,9 +12,9 @@ This repository contains all the necessary data, code, and resources for analyzi
 
 -   **image/**: This folder contains figures, images, and tables generated throughout the analysis.
 
--   **summary.pdf**: A two-page PDF summarizing the findings and key results from the analysis and prediction model.
+-   **executive_summary.pdf**: A two-page PDF summarizing the findings and key results from the analysis and prediction model.
 
--   **presentation_slides.pdf**: The final presentation slides providing an overview of the project, methodology, and results.
+-   **Body fat.pptx**: The final presentation slides providing an overview of the project, methodology, and results.
 
 ### How to Use the Code
 
